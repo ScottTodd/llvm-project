@@ -15,6 +15,7 @@
 
 #include "mlir/Support/LLVM.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
 #include <memory>
 
 // Forward-declare LLVM classes.
@@ -35,7 +36,8 @@ class ModuleOp;
 /// the MLIR module), and return `nullptr`.
 std::unique_ptr<llvm::Module>
 translateModuleToLLVMIR(ModuleOp m, llvm::LLVMContext &llvmContext,
-                        StringRef name = "LLVMDialectModule");
+                        StringRef name = "LLVMDialectModule",
+                        llvm::Triple configTriple = llvm::Triple());
 
 /// Convert the given LLVM module into MLIR's LLVM dialect.  The LLVM context is
 /// extracted from the registered LLVM IR dialect. In case of error, report it
