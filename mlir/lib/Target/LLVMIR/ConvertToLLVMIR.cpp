@@ -16,6 +16,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Translation.h"
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -23,11 +24,11 @@
 
 using namespace mlir;
 
-std::unique_ptr<llvm::Module>
-mlir::translateModuleToLLVMIR(ModuleOp m, llvm::LLVMContext &llvmContext,
-                              StringRef name) {
-  auto llvmModule =
-      LLVM::ModuleTranslation::translateModule<>(m, llvmContext, name);
+std::unique_ptr<llvm::Module> mlir::translateModuleToLLVMIR(
+    ModuleOp m, llvm::LLVMContext &llvmContext, StringRef name,
+    ArrayRef<llvm::Module::ModuleFlagEntry> moduleFlags) {
+  auto llvmModule = LLVM::ModuleTranslation::translateModule<>(
+      m, llvmContext, name, moduleFlags);
   if (!llvmModule)
     emitError(m.getLoc(), "Fail to convert MLIR to LLVM IR");
   else if (verifyModule(*llvmModule))

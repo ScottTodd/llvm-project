@@ -938,7 +938,8 @@ ModuleTranslation::lookupValues(ValueRange values) {
 }
 
 std::unique_ptr<llvm::Module> ModuleTranslation::prepareLLVMModule(
-    Operation *m, llvm::LLVMContext &llvmContext, StringRef name) {
+    Operation *m, llvm::LLVMContext &llvmContext, StringRef name,
+    ArrayRef<llvm::Module::ModuleFlagEntry> moduleFlags) {
   m->getContext()->getOrLoadDialect<LLVM::LLVMDialect>();
   auto llvmModule = std::make_unique<llvm::Module>(name, llvmContext);
   if (auto dataLayoutAttr =
@@ -952,6 +953,11 @@ std::unique_ptr<llvm::Module> ModuleTranslation::prepareLLVMModule(
                                   builder.getInt64Ty());
   llvmModule->getOrInsertFunction("free", builder.getVoidTy(),
                                   builder.getInt8PtrTy());
+
+  for (auto moduleFlag : moduleFlags) {
+    llvmModule->addModuleFlag(moduleFlag.Behavior, moduleFlag.Key->getString(),
+                              moduleFlag.Val);
+  }
 
   return llvmModule;
 }

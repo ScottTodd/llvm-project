@@ -21,6 +21,7 @@
 #include "mlir/IR/Value.h"
 #include "mlir/Target/LLVMIR/TypeTranslation.h"
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
@@ -52,13 +53,14 @@ public:
   template <typename T = ModuleTranslation>
   static std::unique_ptr<llvm::Module>
   translateModule(Operation *m, llvm::LLVMContext &llvmContext,
-                  StringRef name = "LLVMDialectModule") {
+                  StringRef name = "LLVMDialectModule",
+                  ArrayRef<llvm::Module::ModuleFlagEntry> moduleFlags = {}) {
     if (!satisfiesLLVMModule(m))
       return nullptr;
     if (failed(checkSupportedModuleOps(m)))
       return nullptr;
     std::unique_ptr<llvm::Module> llvmModule =
-        prepareLLVMModule(m, llvmContext, name);
+        prepareLLVMModule(m, llvmContext, name, moduleFlags);
 
     LLVM::ensureDistinctSuccessors(m);
 
@@ -97,7 +99,8 @@ protected:
 
   static std::unique_ptr<llvm::Module>
   prepareLLVMModule(Operation *m, llvm::LLVMContext &llvmContext,
-                    StringRef name);
+                    StringRef name,
+                    ArrayRef<llvm::Module::ModuleFlagEntry> moduleFlags);
 
   /// A helper to look up remapped operands in the value remapping table.
   SmallVector<llvm::Value *, 8> lookupValues(ValueRange values);

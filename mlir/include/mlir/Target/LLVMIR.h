@@ -14,13 +14,14 @@
 #define MLIR_TARGET_LLVMIR_H
 
 #include "mlir/Support/LLVM.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Module.h"
 #include <memory>
 
 // Forward-declare LLVM classes.
 namespace llvm {
 class LLVMContext;
-class Module;
 } // namespace llvm
 
 namespace mlir {
@@ -33,9 +34,10 @@ class ModuleOp;
 /// from the registered LLVM IR dialect.  In case of error, report it
 /// to the error handler registered with the MLIR context, if any (obtained from
 /// the MLIR module), and return `nullptr`.
-std::unique_ptr<llvm::Module>
-translateModuleToLLVMIR(ModuleOp m, llvm::LLVMContext &llvmContext,
-                        StringRef name = "LLVMDialectModule");
+std::unique_ptr<llvm::Module> translateModuleToLLVMIR(
+    ModuleOp m, llvm::LLVMContext &llvmContext,
+    StringRef name = "LLVMDialectModule",
+    ArrayRef<llvm::Module::ModuleFlagEntry> moduleFlags = {});
 
 /// Convert the given LLVM module into MLIR's LLVM dialect.  The LLVM context is
 /// extracted from the registered LLVM IR dialect. In case of error, report it
