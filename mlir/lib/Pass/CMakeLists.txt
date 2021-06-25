@@ -6,6 +6,7 @@ add_mlir_library(MLIRPass
   PassRegistry.cpp
   PassStatistics.cpp
   PassTiming.cpp
+  PassDataVisualization.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Pass

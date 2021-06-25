@@ -370,6 +370,12 @@ public:
   void
   enableStatistics(PassDisplayMode displayMode = PassDisplayMode::Pipeline);
 
+  //===--------------------------------------------------------------------===//
+  // Pass Data Visualization
+
+  /// Add an instrumentation that aggregates statistics for data visualization.
+  void enableDataVisualizationInstrumentation();
+
 private:
   /// Dump the statistics of the passes within this pass manager.
   void dumpStatistics();

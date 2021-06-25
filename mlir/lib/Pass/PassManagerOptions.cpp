@@ -77,6 +77,12 @@ struct PassManagerOptions {
               "display the results in a merged list sorted by pass name"),
           clEnumValN(PassDisplayMode::Pipeline, "pipeline",
                      "display the results with a nested pipeline view"))};
+
+  //===--------------------------------------------------------------------===//
+  // Pass Data Visualization
+  //===--------------------------------------------------------------------===//
+  llvm::cl::opt<bool> passDataVisualization{
+      "pass-data-visualization", llvm::cl::desc("Aggregate statistics for data visualization")};
 };
 } // end anonymous namespace
 
@@ -144,6 +150,10 @@ void mlir::applyPassManagerCLOptions(PassManager &pm) {
 
   // Add the IR printing instrumentation.
   options->addPrinterInstrumentation(pm);
+
+  // Enable data visualization instrumentation.
+  if (options->passDataVisualization)
+    pm.enableDataVisualizationInstrumentation();
 }
 
 void mlir::applyDefaultTimingPassManagerCLOptions(PassManager &pm) {
