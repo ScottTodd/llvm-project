@@ -113,7 +113,13 @@ private:
 inline raw_indented_ostream &
 mlir::raw_indented_ostream::printReindented(StringRef str,
                                             StringRef extraPrefix) {
-  StringRef output = str;
+  // Before splitting on \n, remove Windows \r characters from \r\n endings.
+  std::string normalizedStr = str.str();
+  normalizedStr.erase(
+      std::remove(normalizedStr.begin(), normalizedStr.end(), '\r'),
+      normalizedStr.cend());
+  StringRef output(normalizedStr);
+
   // Skip empty lines.
   while (!output.empty()) {
     auto split = output.split('\n');
