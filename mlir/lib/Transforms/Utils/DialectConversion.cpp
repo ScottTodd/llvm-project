@@ -832,11 +832,13 @@ struct ConversionPatternRewriterImpl : public RewriterBase::Listener {
                                        Block *insertBlock,
                                        Block::iterator insertPt, Location loc,
                                        ValueRange inputs, Type outputType,
-                                       const TypeConverter *converter);
+                                       const TypeConverter *converter,
+                                       MLIRContext *context);
 
   Value buildUnresolvedTargetMaterialization(Location loc, Value input,
                                              Type outputType,
-                                             const TypeConverter *converter);
+                                             const TypeConverter *converter,
+                                             MLIRContext *context);
 
   //===--------------------------------------------------------------------===//
   // Rewriter Notification Hooks
@@ -1185,7 +1187,8 @@ LogicalResult ConversionPatternRewriterImpl::remapValues(
     if (currentTypeConverter && desiredType && newOperandType != desiredType) {
       Location operandLoc = inputLoc ? *inputLoc : operand.getLoc();
       Value castValue = buildUnresolvedTargetMaterialization(
-          operandLoc, newOperand, desiredType, currentTypeConverter);
+          operandLoc, newOperand, desiredType, currentTypeConverter,
+          rewriter.getContext());
       mapping.map(mapping.lookupOrDefault(newOperand), castValue);
       newOperand = castValue;
     }
@@ -1300,7 +1303,7 @@ Block *ConversionPatternRewriterImpl::applySignatureConversion(
       Value repl = buildUnresolvedMaterialization(
           MaterializationKind::Source, newBlock, newBlock->begin(),
           origArg.getLoc(), /*inputs=*/ValueRange(),
-          /*outputType=*/origArgType, converter);
+          /*outputType=*/origArgType, converter, rewriter.getContext());
       mapping.map(origArg, repl);
       appendRewrite<ReplaceBlockArgRewrite>(block, origArg);
       continue;
@@ -1324,7 +1327,8 @@ Block *ConversionPatternRewriterImpl::applySignatureConversion(
         newBlock->getArguments().slice(inputMap->inputNo, inputMap->size);
     Value argMat = buildUnresolvedMaterialization(
         MaterializationKind::Argument, newBlock, newBlock->begin(),
-        origArg.getLoc(), /*inputs=*/replArgs, origArgType, converter);
+        origArg.getLoc(), /*inputs=*/replArgs, origArgType, converter,
+        rewriter.getContext());
     mapping.map(origArg, argMat);
     appendRewrite<ReplaceBlockArgRewrite>(block, origArg);
 
@@ -1339,7 +1343,8 @@ Block *ConversionPatternRewriterImpl::applySignatureConversion(
       legalOutputType = converter->convertType(origArgType);
     if (legalOutputType && legalOutputType != origArgType) {
       Value targetMat = buildUnresolvedTargetMaterialization(
-          origArg.getLoc(), argMat, legalOutputType, converter);
+          origArg.getLoc(), argMat, legalOutputType, converter,
+          rewriter.getContext());
       mapping.map(argMat, targetMat);
     }
     appendRewrite<ReplaceBlockArgRewrite>(block, origArg);
@@ -1363,22 +1368,24 @@ Block *ConversionPatternRewriterImpl::applySignatureConversion(
 Value ConversionPatternRewriterImpl::buildUnresolvedMaterialization(
     MaterializationKind kind, Block *insertBlock, Block::iterator insertPt,
     Location loc, ValueRange inputs, Type outputType,
-    const TypeConverter *converter) {
+    const TypeConverter *converter, MLIRContext *context) {
   // Avoid materializing an unnecessary cast.
   if (inputs.size() == 1 && inputs.front().getType() == outputType)
     return inputs.front();
 
   // Create an unresolved materialization. We use a new OpBuilder to avoid
   // tracking the materialization like we do for other operations.
-  OpBuilder builder(insertBlock, insertPt);
+  // OpBuilder builder(context, insertBlock, insertPt);
+  OpBuilder builder(context);
+  builder.setInsertionPoint(insertBlock, insertPt);
   auto convertOp =
       builder.create<UnrealizedConversionCastOp>(loc, outputType, inputs);
   appendRewrite<UnresolvedMaterializationRewrite>(convertOp, converter, kind);
   return convertOp.getResult(0);
 }
 Value ConversionPatternRewriterImpl::buildUnresolvedTargetMaterialization(
-    Location loc, Value input, Type outputType,
-    const TypeConverter *converter) {
+    Location loc, Value input, Type outputType, const TypeConverter *converter,
+    MLIRContext *context) {
   Block *insertBlock = input.getParentBlock();
   Block::iterator insertPt = insertBlock->begin();
   if (OpResult inputRes = dyn_cast<OpResult>(input))
@@ -1386,7 +1393,7 @@ Value ConversionPatternRewriterImpl::buildUnresolvedTargetMaterialization(
 
   return buildUnresolvedMaterialization(MaterializationKind::Target,
                                         insertBlock, insertPt, loc, input,
-                                        outputType, converter);
+                                        outputType, converter, context);
 }
 
 //===----------------------------------------------------------------------===//
