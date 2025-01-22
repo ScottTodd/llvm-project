@@ -672,37 +672,6 @@ function(add_mlir_python_extension libname extname)
       ${ARG_SOURCES}
     )
 
-    if (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL)
-      # Avoids warnings from upstream nanobind.
-      set(nanobind_target "nanobind-static")
-      if (NOT TARGET ${nanobind_target})
-        # Get correct nanobind target name: nanobind-static-ft or something else
-        # It is set by nanobind_add_module function according to the passed options
-        get_property(all_targets DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
-
-        # Iterate over the list of targets
-        foreach(target ${all_targets})
-          # Check if the target name matches the given string
-          if("${target}" MATCHES "nanobind-")
-            set(nanobind_target "${target}")
-          endif()
-        endforeach()
-
-        if (NOT TARGET ${nanobind_target})
-          message(FATAL_ERROR "Could not find nanobind target to set compile options to")
-        endif()
-      endif()
-      target_compile_options(${nanobind_target}
-        PRIVATE
-          -Wno-cast-qual
-          -Wno-zero-length-array
-          -Wno-nested-anon-types
-          -Wno-c++98-compat-extra-semi
-          -Wno-covered-switch-default
-          ${eh_rtti_enable}
-      )
-    endif()
-    
     if(APPLE)
       # NanobindAdaptors.h uses PyClassMethod_New to build `pure_subclass`es but nanobind
       # doesn't declare this API as undefined in its linker flags. So we need to declare it as such

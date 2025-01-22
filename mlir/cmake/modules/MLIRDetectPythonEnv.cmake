@@ -44,6 +44,39 @@ macro(mlir_configure_python_dev_packages)
     message(STATUS "Python prefix = '${PYTHON_MODULE_PREFIX}', "
                   "suffix = '${PYTHON_MODULE_SUFFIX}', "
                   "extension = '${PYTHON_MODULE_EXTENSION}")
+
+    # Avoid warnings from upstream nanobind.
+    if (LLVM_COMPILER_IS_GCC_COMPATIBLE OR CLANG_CL)
+      set(nanobind_target "nanobind-static")
+      if (NOT TARGET ${nanobind_target})
+        # Get correct nanobind target name: nanobind-static-ft or something else
+        # It is set by nanobind_add_module function according to the passed options
+        get_property(all_targets DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
+        message(STATUS "all_targets: ${all_targets}")
+
+        # Iterate over the list of targets
+        foreach(target ${all_targets})
+          # Check if the target name matches the given string
+          if("${target}" MATCHES "nanobind-")
+            set(nanobind_target "${target}")
+          endif()
+        endforeach()
+
+        if (NOT TARGET ${nanobind_target})
+          message(FATAL_ERROR "Could not find nanobind target to set compile options to")
+        endif()
+      endif()
+      message(STATUS "Modifying compile options for nanobind target '${nanobind_target}'")
+      target_compile_options(${nanobind_target}
+        PRIVATE
+          -Wno-cast-qual
+          -Wno-zero-length-array
+          -Wno-nested-anon-types
+          -Wno-c++98-compat-extra-semi
+          -Wno-covered-switch-default
+          ${eh_rtti_enable}
+      )
+    endif()
   endif()
 endmacro()
 
