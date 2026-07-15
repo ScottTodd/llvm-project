@@ -240,6 +240,66 @@ static void primeLibraryLoad(StringRef Path) {
     WithColor::note() << "priming LoadLibraryExW failed for " << Path
                       << " (error " << Err << ")\n";
 }
+
+// Keep the HIP runtime directory in the process DLL search path while the
+// runtime is in use. LOAD_WITH_ALTERED_SEARCH_PATH only affects dependencies
+// resolved as part of the initial load. DLLs loaded later by initialization or
+// HIP API calls use the normal process search path instead.
+class ScopedDLLDirectory {
+public:
+  explicit ScopedDLLDirectory(StringRef Directory) {
+    SetLastError(ERROR_SUCCESS);
+    DWORD PreviousLength = GetDllDirectoryW(0, nullptr);
+    if (PreviousLength == 0 && GetLastError() != ERROR_SUCCESS) {
+      Error = GetLastError();
+      return;
+    }
+    if (PreviousLength > 0) {
+      PreviousDirectory.resize(PreviousLength);
+      SetLastError(ERROR_SUCCESS);
+      DWORD Copied = GetDllDirectoryW(PreviousLength,
+                                      PreviousDirectory.data());
+      if (Copied >= PreviousLength ||
+          (Copied == 0 && GetLastError() != ERROR_SUCCESS)) {
+        Error = GetLastError();
+        PreviousDirectory.clear();
+        return;
+      }
+      HadPreviousDirectory = Copied > 0;
+    }
+
+    SmallVector<UTF16, 256> WDirectory;
+    if (!convertUTF8ToUTF16String(Directory, WDirectory)) {
+      Error = ERROR_NO_UNICODE_TRANSLATION;
+      return;
+    }
+    WDirectory.push_back(0);
+    if (!SetDllDirectoryW(
+            reinterpret_cast<LPCWSTR>(WDirectory.data()))) {
+      Error = GetLastError();
+      return;
+    }
+    Active = true;
+  }
+
+  ScopedDLLDirectory(const ScopedDLLDirectory &) = delete;
+  ScopedDLLDirectory &operator=(const ScopedDLLDirectory &) = delete;
+
+  ~ScopedDLLDirectory() {
+    if (Active)
+      SetDllDirectoryW(HadPreviousDirectory ? PreviousDirectory.data()
+                                            : nullptr);
+  }
+
+  bool isActive() const { return Active; }
+  DWORD getError() const { return Error; }
+
+private:
+  SmallVector<wchar_t, 256> PreviousDirectory;
+  bool HadPreviousDirectory = false;
+  bool Active = false;
+  DWORD Error = ERROR_SUCCESS;
+};
 #endif
 
 int printGPUsByHIP() {
@@ -254,9 +314,19 @@ int printGPUsByHIP() {
 
   std::string ErrMsg;
 #ifdef _WIN32
-  // Prime DLL load so transitive deps resolve from its directory.
-  if (!IsFallback)
+  std::unique_ptr<ScopedDLLDirectory> HIPDLLDirectory;
+  if (!IsFallback) {
+    HIPDLLDirectory = std::make_unique<ScopedDLLDirectory>(
+        sys::path::parent_path(DynamicHIPPath));
+    if (!HIPDLLDirectory->isActive() && Verbose)
+      WithColor::note() << "setting HIP DLL directory failed for "
+                        << sys::path::parent_path(DynamicHIPPath) << " (error "
+                        << HIPDLLDirectory->getError() << ")\n";
+
+    // Prime DLL load so dependencies resolved during the initial load come
+    // from its directory. HIPDLLDirectory remains active for deferred loads.
     primeLibraryLoad(DynamicHIPPath);
+  }
 #endif
   auto DynlibHandle = std::make_unique<llvm::sys::DynamicLibrary>(
       llvm::sys::DynamicLibrary::getPermanentLibrary(DynamicHIPPath.c_str(),
